@@ -1,22 +1,17 @@
 {
   "compilerOptions": {
-    "target": "ES2022",
-    "lib": ["ES2023"],
-    "module": "ESNext",
-    "skipLibCheck": true,
-
-    /* Bundler mode */
-    "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
-    "isolatedModules": true,
-    "moduleDetection": "force",
-    "noEmit": true,
-
-    /* Linting */
-    "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true
+    "target": "ES2020",                 // 编译目标：ES2020
+    "module": "commonjs",               // Node.js 使用 CommonJS 模块系统
+    "lib": ["ES2020"],                  // 使用 ES2020 的标准库
+    "strict": true,                     // 启用严格模式
+    "esModuleInterop": true,            // 支持默认导入 CommonJS 模块
+    "skipLibCheck": true,               // 跳过库文件类型检查，加快编译
+    "moduleResolution": "node",         // Node.js 模块解析方式
+    "outDir": "./dist",                 // 输出目录
+    "rootDir": "./",                    // 源文件根目录
+    "resolveJsonModule": true           // 支持导入 JSON 文件
   },
-  "include": ["vite.config.ts"]
+  "include": ["server/**/*.ts"],        // 包含 server 目录下的所有 TypeScript 文件
+  "exclude": ["node_modules", "dist"]  // 排除 node_modules 和 dist 目录
 }
+

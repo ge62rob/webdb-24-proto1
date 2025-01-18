@@ -13,6 +13,7 @@ export function DrugCard({ drug, onSelect, onRemove }: DrugCardProps) {
   const [chatResponse, setChatResponse] = useState<string | null>(null);
   const [chatting, setChatting] = useState<boolean>(false);
   const [question, setQuestion] = useState<string>('');
+  const [showWarning, setShowWarning] = useState<boolean>(false);
 
   const handleChat = async () => {
     setChatting(true);
@@ -34,7 +35,8 @@ export function DrugCard({ drug, onSelect, onRemove }: DrugCardProps) {
         setChatResponse('Please enter a valid question.');
       }
     } catch (error) {
-      setChatResponse('Failed to retrieve information. Please try again.');
+      console.error('DrugCard chat error:', error);
+      setChatResponse(`Failed to retrieve information: ${(error as Error).message}. Please try again.`);
     } finally {
       setChatting(false);
     }
@@ -104,9 +106,26 @@ export function DrugCard({ drug, onSelect, onRemove }: DrugCardProps) {
         )}
 
         {drug.warnings && drug.warnings.length > 0 && (
-          <div className="mt-3 flex items-start space-x-2">
-            <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
-            <p className="text-sm text-red-600">{drug.warnings[0]}</p>
+          <div className="mt-3">
+            <button
+              onClick={() => setShowWarning(!showWarning)}
+              className="flex items-center space-x-2 hover:bg-gray-100 p-1 rounded-lg"
+            >
+              <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
+              <span className="text-sm text-red-600">
+                {showWarning ? 'Collapse Warnings' : 'Expand Warnings'}
+              </span>
+              <ChevronRight
+                className={`h-4 w-4 text-red-500 transition-transform ${
+                  showWarning ? 'rotate-90' : ''
+                }`}
+              />
+            </button>
+            {showWarning && (
+              <div className="mt-2 pl-7">
+                <p className="text-sm text-red-600">{drug.warnings[0]}</p>
+              </div>
+            )}
           </div>
         )}
       </div>

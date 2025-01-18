@@ -1,75 +1,67 @@
 import axios from 'axios';
 
-const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
-const FDA_API_BASE_URL = 'https://api.fda.gov/drug/label.json';
+interface ApiResponseData {
+  error?: string;
+  message?: string;
+}
+
+interface ApiError extends Error {
+  response?: {
+    data?: ApiResponseData;
+  };
+  config?: {
+    url?: string;
+    method?: string;
+    headers?: Record<string, string>;
+    data?: unknown;
+  };
+}
+
+const OPENAI_API_URL = 'https://api.deepseek.com/v1/chat/completions';
+const LLM_MODEL = 'deepseek-chat';
+const API_KEY = import.meta.env.VITE_DEEPSEEK_API_KEY;
 const MAX_TOKEN_LIMIT = 2000; // Token limit for each chunk
 const SUMMARY_TOKEN_LIMIT = 1500; // Token limit for each summary
 
+const API_BASE = 'http://localhost:3001/api'; // 改为后端地址
+
+// === 1) 搜索药物，与后端交互 ===
 /**
  * Fetch drug data from the FDA API using the brand name.
- * @param brandName The brand name of the drug.
+ * @param drugName The brand name of the drug.
  * @returns A Promise that resolves to an array of Drug objects.
  */
-export async function fetchDrugData(brandName: string): Promise<any[]> {
+export async function fetchDrugData(drugName: string) {
   try {
-    const response = await axios.get(FDA_API_BASE_URL, {
-      params: {
-        search: `openfda.brand_name:"${brandName}"`,
-        limit: 1,
-      },
+    // 调用后端 /drugs/search?name=xxx
+    const response = await axios.get(`${API_BASE}/drugs/search`, {
+      params: { name: drugName },
     });
-
-    const results = response.data.results;
-
-    if (!results || results.length === 0) {
-      throw new Error('No data found for the specified drug.');
-    }
-
-    return results.map((item: any) => ({
-      id: item.id,
-      name: item.openfda.brand_name[0],
-      category: item.openfda.product_type?.[0] || 'Not specified',
-      indications: item.indications_and_usage ? [item.indications_and_usage] : [],
-      warnings: item.warnings ? [item.warnings] : [],
-      mechanismOfAction: item.clinical_pharmacology || 'Information not available',
-      dosage: item.dosage_and_administration || 'Dosage information not available',
-      contraindications: item.contraindications ? [item.contraindications] : [],
-    }));
+    // 后端返回: { hitCache: boolean, data: {...} }
+    return response.data;
   } catch (error) {
-    console.error('Error fetching drug data:', error);
-    throw new Error('Failed to fetch drug data. Please try again.');
+    const err = error as ApiError;
+    throw new Error(err.response?.data?.error || 'Failed to fetch drug data');
   }
 }
 
+// === 2) 分析多个药物的相互作用 ===
 /**
  * Analyze potential cross-reactions between drugs using OpenAI API.
- * @param drugs An array of drug names.
+ * @param drugIds An array of drug names.
  * @returns A Promise that resolves to a string containing the analysis.
  */
-export async function analyzeDrugInteractions(drugs: string[]): Promise<string> {
+export async function analyzeDrugInteractions(drugIds: string[]) {
   try {
-    const prompt = `Analyze the following drugs for potential interactions or cross-reactions: ${drugs.join(', ')}. Provide recommendations for safety and highlight any contraindications.`;
-
-    const response = await axios.post(
-      OPENAI_API_URL,
-      {
-        model: 'gpt-4',
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 500,
-        temperature: 0.7,
-      },
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`,
-        },
-      }
-    );
-
-    return response.data.choices[0].message.content.trim();
+    // POST /interactions/analyze
+    const response = await axios.post(`${API_BASE}/interactions/analyze`, {
+      drugIds,
+    });
+    // 后端返回: { pairs: [ {drug1_id, drug2_id, analysis_text}, ... ] }
+    return response.data;
   } catch (error) {
-    console.error('Error analyzing drug interactions:', error.response?.data || error.message);
-    throw new Error('Failed to analyze drug interactions. Please try again.');
+    const err = error as Error & { response?: { data?: { error?: string } } };
+    throw new Error(err.response?.data?.error || 'Failed to analyze interactions');
   }
 }
 
@@ -84,7 +76,7 @@ async function summarizeText(text: string): Promise<string> {
     const response = await axios.post(
       OPENAI_API_URL,
       {
-        model: 'gpt-4',
+        model: LLM_MODEL,
         messages: [{ role: 'user', content: prompt }],
         max_tokens: SUMMARY_TOKEN_LIMIT,
         temperature: 0.5,
@@ -92,15 +84,30 @@ async function summarizeText(text: string): Promise<string> {
       {
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`,
+          Authorization: `Bearer ${API_KEY}`,
         },
       }
     );
 
     return response.data.choices[0].message.content.trim();
   } catch (error) {
-    console.error('Error summarizing text:', error.response?.data || error.message);
-    throw new Error('Failed to summarize text. Please try again.');
+    const err = error as ApiError;
+    console.log('API Key:', API_KEY);
+    console.log('Request Headers:', {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${API_KEY}`
+    });
+    console.error('Error summarizing text:', {
+      message: err.message,
+      response: err.response?.data,
+      config: {
+        url: err.config?.url,
+        method: err.config?.method,
+        headers: err.config?.headers ? Object.keys(err.config.headers) : null,
+        data: err.config?.data
+      }
+    });
+    throw new Error(`Failed to summarize text: ${err.message}. Please check API configuration.`);
   }
 }
 
@@ -119,7 +126,7 @@ async function condenseSummaries(summaries: string[]): Promise<string[]> {
     const response = await axios.post(
       OPENAI_API_URL,
       {
-        model: 'gpt-4',
+        model: LLM_MODEL,
         messages: [{ role: 'user', content: prompt }],
         max_tokens: SUMMARY_TOKEN_LIMIT,
         temperature: 0.5,
@@ -127,14 +134,15 @@ async function condenseSummaries(summaries: string[]): Promise<string[]> {
       {
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`,
+          Authorization: `Bearer ${API_KEY}`,
         },
       }
     );
 
     return [response.data.choices[0].message.content.trim()];
   } catch (error) {
-    console.error('Error condensing summaries:', error.response?.data || error.message);
+    const err = error as Error & { response?: { data?: unknown } };
+    console.error('Error condensing summaries:', err.response?.data || err.message);
     throw new Error('Failed to condense summaries. Please try again.');
   }
 }
@@ -152,7 +160,7 @@ async function generateAnswer(summaries: string[], question: string): Promise<st
     const response = await axios.post(
       OPENAI_API_URL,
       {
-        model: 'gpt-4',
+        model: LLM_MODEL,
         messages: [{ role: 'user', content: prompt }],
         max_tokens: SUMMARY_TOKEN_LIMIT,
         temperature: 0.7,
@@ -160,14 +168,15 @@ async function generateAnswer(summaries: string[], question: string): Promise<st
       {
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`,
+          Authorization: `Bearer ${API_KEY}`,
         },
       }
     );
 
     return response.data.choices[0].message.content.trim();
   } catch (error) {
-    console.error('Error generating answer:', error.response?.data || error.message);
+    const err = error as Error & { response?: { data?: unknown } };
+    console.error('Error generating answer:', err.response?.data || err.message);
     throw new Error('Failed to generate an answer. Please try again.');
   }
 }
@@ -199,7 +208,25 @@ export async function chatWithProspectus(prospectus: string, question: string): 
     // Step 4: Generate the final answer from condensed summaries
     return await generateAnswer(summaries, question);
   } catch (error) {
-    console.error('Error in chatWithProspectus:', error.response?.data || error.message);
-    throw new Error('Failed to chat with the prospectus. Please try again.');
+    const err = error as Error & {
+      response?: { data?: unknown },
+      config?: {
+        url?: string,
+        method?: string,
+        headers?: Record<string, unknown>,
+        data?: unknown
+      }
+    };
+    console.error('Error in chatWithProspectus:', {
+      message: err.message,
+      response: err.response?.data,
+      config: {
+        url: err.config?.url,
+        method: err.config?.method,
+        headers: err.config?.headers ? Object.keys(err.config.headers) : null,
+        data: err.config?.data
+      }
+    });
+    throw new Error(`Failed to chat with the prospectus: ${err.message}. Please check your API key and network connection.`);
   }
 }
