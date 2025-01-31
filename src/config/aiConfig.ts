@@ -1,4 +1,4 @@
-type AIProvider = 'openai' | 'deepseek';
+type AIProvider = 'openai' | 'deepseek' | 'gemini';
 
 interface AIConfig {
   provider: AIProvider;
