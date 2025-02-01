@@ -11,8 +11,8 @@ const app = express();
 
 // 定义允许的远程来源列表（针对 GitHub Pages 部分）
 const allowedOrigins = [
-  "https://ShuchengYang.github.io",
-  "https://ShuchengYang.github.io/drug_info_system"
+  "https://shuchengyang.github.io",
+  "https://shuchengyang.github.io/drug_info_system/"
 ];
 
 app.use(cors({
