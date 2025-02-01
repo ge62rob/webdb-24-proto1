@@ -99,3 +99,12 @@ export async function chatWithProspectus(prospectus: string, question: string): 
     throw new Error('Drug Q&A service is temporarily unavailable');
   }
 }
+
+//==
+export async function autoCompleteDrugs(prefix: string): Promise<string[]> {
+  // GET /api/drugs/autocomplete?prefix=xxx
+  const response = await axios.get<string[]>(`${API_BASE}/drugs/autocomplete`, {
+    params: { prefix },
+  });
+  return response.data; // 返回字符串数组
+}

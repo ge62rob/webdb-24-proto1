@@ -149,4 +149,39 @@ function transformDrugRecord(dbRow: any) {
   };
 }
 
+/**
+ * 自动补全接口
+ * GET /api/drugs/autocomplete?prefix=xxx
+ * 返回一个字符串数组，表示匹配到的药品名称
+ */
+router.get('/autocomplete', async (req, res) => {
+  const prefix = (req.query.prefix || '').toString().toLowerCase();
+
+  // 如果没有 prefix，则直接返回空数组
+  if (!prefix) {
+    return res.json([]);
+  }
+
+  try {
+    // 用SQL做前缀匹配 (name LIKE prefix%)
+    // 这里ORDER BY可选，LIMIT 10只拿前10个候选
+    const sql = `
+      SELECT name
+      FROM drugs
+      WHERE LOWER(name) LIKE '%' || $1 || '%'
+      ORDER BY name
+      LIMIT 10
+    `;
+    const result = await pool.query(sql, [ prefix ])
+
+    // rows 形如 [ { name: 'aspirin' }, { name: 'amoxicillin' }, ... ]
+    const drugNames = result.rows.map(r => r.name);
+
+    return res.json(drugNames);
+  } catch (error) {
+    console.error('Autocomplete error:', error);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
 export default router;
