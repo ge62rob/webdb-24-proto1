@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "scripts": {
     "dev": "npx ts-node-dev --project ./tsconfig.node.json --respawn ./server.ts",
+    "build": "tsc --project ./tsconfig.node.json",
     "start": "node dist/server.js"
   },
   "dependencies": {
