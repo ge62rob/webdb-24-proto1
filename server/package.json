@@ -2,7 +2,7 @@
   "name": "webdb24-server",
   "version": "1.0.0",
   "scripts": {
-    "dev": "npx ts-node-dev --project ../tsconfig.node.json --respawn ./server.ts",
+    "dev": "npx ts-node-dev --project ./tsconfig.node.json --respawn ./server.ts",
     "start": "node dist/server.js"
   },
   "dependencies": {
