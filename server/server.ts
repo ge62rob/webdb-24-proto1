@@ -1,3 +1,5 @@
+// 文件路径：webdb-24-proto1/server/server.ts
+
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -9,34 +11,14 @@ dotenv.config();
 
 const app = express();
 
-// 定义允许的远程来源列表（针对 GitHub Pages 部分）
-const allowedOrigins = [
-  "https://shuchengyang.github.io",
-  "https://shuchengyang.github.io/drug_info_system/"
-];
-
+// 放宽限制：允许所有来源的请求
 app.use(cors({
-  origin: (origin, callback) => {
-    // 如果请求没有 origin（例如 curl、Postman），可选择允许
-    if (!origin) {
-      return callback(null, true);
-    }
-    // 如果请求来自本地（localhost 或 127.0.0.1），允许
-    if (origin.startsWith("http://localhost") || origin.startsWith("http://127.0.0.1")) {
-      return callback(null, true);
-    }
-    // 如果请求的 origin 恰好等于我们允许的 GitHub Pages 域名之一，则允许
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-    // 否则拒绝
-    return callback(new Error("Not allowed by CORS"));
-  },
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-  credentials: true
+  origin: '*', // 允许所有域名
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
+// 或者直接使用 app.use(cors()); 也可（默认允许所有来源）
 app.use(express.json());
 
 // 测试数据库连接

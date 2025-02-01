@@ -55,6 +55,12 @@ export function DrugInput({ onAddDrug }: DrugInputProps) {
     }
     try {
       const matches = await autoCompleteDrugs(value.toLowerCase());
+      console.log("matches from API:", matches);  // 调试输出，确认数据类型
+      if (!Array.isArray(matches)) {
+        console.error("Expected array for matches, got:", matches);
+        setSuggestions([]);
+        return;
+      }
       // 根据匹配位置排序（匹配位置越靠前越靠前）
       const sorted = matches.sort((a, b) =>
         a.toLowerCase().indexOf(value.toLowerCase()) - b.toLowerCase().indexOf(value.toLowerCase())
