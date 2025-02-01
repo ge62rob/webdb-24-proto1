@@ -8,8 +8,8 @@ import { fetchDrugData, analyzeDrugInteractions } from './api';
  */
 export async function searchDrugs(drugName: string): Promise<Drug[]> {
     const { data } = await fetchDrugData(drugName);
-    // 后端返回的 data 字段里包含所有 Drug 信息
-    // 为了与前端定义的 Drug[] 类型保持一致，可以做些格式转换
+    // The data field returned by the backend contains all Drug information
+    // To maintain consistency with the frontend-defined Drug[] type, some format conversion can be done
     return [data];
 }
 
@@ -18,7 +18,7 @@ export async function searchDrugs(drugName: string): Promise<Drug[]> {
  * @param drugIds An array of Drug objects.
  * @returns A Promise that resolves to a string containing the analysis.
  */
-// 分析相互作用：假设我们需要传 drugId 列表给后端
+// Analyze interactions: assuming we need to pass a list of drug IDs to the backend
 interface AnalysisResult {
   drug1_name: string;
   drug2_name: string;
@@ -28,11 +28,11 @@ interface AnalysisResult {
 }
 
 export async function getDrugInteractionAnalysis(drugIds: string[]): Promise<AnalysisResult[]> {
-    // 调用 analyzeDrugInteractions
+    // Call analyzeDrugInteractions
     const { pairs } = await analyzeDrugInteractions(drugIds);
-    // pairs 形如 [{ drug1_id, drug2_id, analysis_text }, ...]
-    // 前端可以自己把它拼接成一段文字，或返回 JSON 自行渲染
-    // 这里仅示例：简单把各对 analysis_text 拼在一起
+    // pairs are in the form of [{ drug1_id, drug2_id, analysis_text }, ...]
+    // The frontend can concatenate it into a piece of text itself, or return JSON for rendering
+    // Here is an example: simply concatenate the analysis_text of each pair
     interface Pair {
       drug1_id: string;
       drug2_id: string;

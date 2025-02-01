@@ -11,7 +11,7 @@ const router = Router();
 /**
  * POST /api/interactions/analyze
  * body: { drugIds: string[] }
- * 对每两种drug配对查询数据库，如无记录则调用OpenAI写库
+ * Analyze every two-drug pair by querying the database, if no record exists, call OpenAI and write to the database
  */
 router.post('/analyze', async (req, res) => {
   try {
@@ -20,7 +20,7 @@ router.post('/analyze', async (req, res) => {
       return res.status(400).json({ error: 'At least two drug IDs are required for interaction analysis.' });
     }
 
-    // 1) 生成两两配对
+    // 1) Generate two-way pairs
     const pairs = generatePairs(drugIds);
     interface InteractionResult {
       drug1_id: string;
@@ -35,10 +35,10 @@ router.post('/analyze', async (req, res) => {
     const results: InteractionResult[] = [];
 
     for (const [id1, id2] of pairs) {
-      // 固定顺序, 避免 (B, C) / (C, B) 重复
+      // Fixed order, avoid (B, C) / (C, B) duplication
       const [d1, d2] = sortDrugIds(id1, id2);
 
-      // 2) 查询数据库
+      // 2) Query the database
       const checkRes = await pool.query(
         `SELECT dip.*, d1.name as drug1_name, d2.name as drug2_name
          FROM drug_interaction_pairs dip
@@ -50,7 +50,7 @@ router.post('/analyze', async (req, res) => {
       );
 
       if (checkRes.rowCount && checkRes.rowCount > 0) {
-        // 已存在记录
+        // Record exists
         const row = checkRes.rows[0];
         results.push({
           drug1_id: d1,
@@ -62,10 +62,10 @@ router.post('/analyze', async (req, res) => {
           risk_rating: row.risk_rating || 'Unknown',
         });
       } else {
-        // 不存在 => 调用 GPT
+        // Record does not exist => Call GPT
         const { summary, details, rating } = await callOpenAIForPair(d1, d2);
 
-        // 插入数据库
+        // Insert into the database
         const newId = uuidv4();
         await pool.query(
           `INSERT INTO drug_interaction_pairs
@@ -88,7 +88,7 @@ router.post('/analyze', async (req, res) => {
       }
     }
 
-    // 最终返回，保持原有结构
+    // Final return, maintain original structure
     return res.json({
       pairs: results.map(pair => ({
         drug1_name: pair.drug1_name,
@@ -104,7 +104,7 @@ router.post('/analyze', async (req, res) => {
   }
 });
 
-/** 生成两两配对 */
+/** Generate two-way pairs */
 function generatePairs(ids: string[]): [string, string][] {
   const pairs: [string, string][] = [];
   for (let i = 0; i < ids.length; i++) {
@@ -115,21 +115,21 @@ function generatePairs(ids: string[]): [string, string][] {
   return pairs;
 }
 
-/** 保持 drug1_id < drug2_id，以防重复 */
+/** Ensure drug1_id < drug2_id to prevent duplication */
 function sortDrugIds(a: string, b: string): [string, string] {
   return a < b ? [a, b] : [b, a];
 }
 
-/** 调用 OpenAI GPT，分析两种药物 */
+/** Call OpenAI GPT to analyze two drugs */
 async function callOpenAIForPair(drugId1: string, drugId2: string): Promise<{
   summary: string;
   details: string;
   rating: string;
 }> {
-  // 先通过 drugId 查 drug name
+  // First, get drug names by drugId
   const [name1, name2] = await getDrugNamesByIds([drugId1, drugId2]);
 
-  // 构造提示
+  // Construct the prompt
   const prompt = `You are a highly knowledgeable pharmacology expert.
 Analyze the following two drugs for potential interactions or cross-reactions:
 1) ${name1}
@@ -180,7 +180,7 @@ Important:
     );
 
     let raw = response.data.choices?.[0]?.message?.content || '';
-    // 去除 Markdown 代码块
+    // Remove Markdown code blocks
     raw = raw.replace(/```json/g, '').replace(/```/g, '').trim();
     
     let parsed;
@@ -203,7 +203,7 @@ Important:
   }
 }
 
-/** 根据 drug_id 获取对应药物 name */
+/** Get drug names by drug_id */
 async function getDrugNamesByIds(ids: string[]): Promise<string[]> {
   const query = `SELECT id, name FROM drugs WHERE id = ANY($1)`;
   const result = await pool.query(query, [ids]);
@@ -211,7 +211,7 @@ async function getDrugNamesByIds(ids: string[]): Promise<string[]> {
   for (const row of result.rows) {
     map[row.id] = row.name;
   }
-  // 保持输入顺序输出
+  // Maintain input order for output
   return ids.map(id => map[id] || 'Unknown Drug');
 }
 

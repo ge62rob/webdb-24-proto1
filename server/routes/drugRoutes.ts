@@ -1,4 +1,3 @@
-// 文件路径：webdb-24-proto1/server/routes/drugRoutes.ts
 import { Router } from 'express';
 import { pool } from '../db/db';
 import { v4 as uuidv4 } from 'uuid';
@@ -8,7 +7,7 @@ const router = Router();
 
 /**
  * GET /api/drugs/search?name=xxx
- * 查询药物，如果数据库没有则调用FDA API并写入
+ * Query drugs, if not found in the database, call the FDA API and write to the database
  */
 router.get('/search', async (req, res) => {
   const { name } = req.query;
@@ -20,7 +19,7 @@ router.get('/search', async (req, res) => {
   const drugName = String(name).trim().toLowerCase();
 
   try {
-    // 1) 数据库查询
+    // 1) Database query
     const dbResult = await pool.query(`
       SELECT d.*, dd.indications, dd.warnings, dd.mechanism_of_action, dd.dosage, dd.contraindications, dd.raw_data
       FROM drugs d
@@ -28,13 +27,13 @@ router.get('/search', async (req, res) => {
       WHERE LOWER(TRIM(d.name)) LIKE '%' || $1 || '%'`, [drugName]);
 
     if (dbResult.rowCount && dbResult.rowCount > 0) {
-      // 命中缓存
+      // Cache hit
       const drug = dbResult.rows[0];
 
-      // 更新 last_queried
+      // Update last_queried
       await pool.query(`UPDATE drugs SET last_queried = NOW() WHERE id = $1`, [drug.id]);
 
-      // 记录日志
+      // Log the query
       const logId = uuidv4();
       await pool.query(`
         INSERT INTO query_logs (id, drug_id, hit_cache, response_time) 
@@ -46,7 +45,7 @@ router.get('/search', async (req, res) => {
         data: transformDrugRecord(drug),
       });
     } else {
-      // 未命中缓存 => 调用 FDA API
+      // Cache miss => Call FDA API
       const apiUrl = `https://api.fda.gov/drug/label.json?search=openfda.brand_name:${drugName}&limit=1`;
       try {
         const response = await axios.get(apiUrl);
@@ -57,7 +56,7 @@ router.get('/search', async (req, res) => {
         const apiDrug = response.data.results[0];
         const newDrugId = uuidv4();
 
-        // 提取字段
+        // Extract fields
         const drugRecord = {
           id: newDrugId,
           name: apiDrug.openfda?.brand_name?.[0] || drugName,
@@ -76,7 +75,7 @@ router.get('/search', async (req, res) => {
           raw_data: apiDrug,
         };
 
-        // 插入数据
+        // Insert data
         await pool.query(`
           INSERT INTO drugs (id, name, category, source, created_at, updated_at, last_queried)
           VALUES ($1, $2, $3, $4, NOW(), NOW(), NOW())
@@ -97,14 +96,14 @@ router.get('/search', async (req, res) => {
           JSON.stringify(detailsRecord.raw_data),
         ]);
 
-        // 记录日志
+        // Log the query
         const logId = uuidv4();
         await pool.query(`
           INSERT INTO query_logs (id, drug_id, hit_cache, response_time) 
           VALUES ($1, $2, $3, $4)
         `, [logId, newDrugId, false, Date.now() - startTime]);
 
-        // 返回结果
+        // Return result
         return res.json({
           hitCache: false,
           data: {
@@ -119,7 +118,7 @@ router.get('/search', async (req, res) => {
           },
         });
       } catch (apiError) {
-        // 修复 TS18046 错误
+        // Fix TS18046 error
         if (apiError instanceof Error) {
           console.error('FDA API error:', apiError.message);
           return res.status(500).json({ error: 'FDA API error', details: apiError.message });
@@ -135,7 +134,7 @@ router.get('/search', async (req, res) => {
   }
 });
 
-/** 将数据库记录转换为前端所需结构 */
+/** Transform database record to frontend required structure */
 function transformDrugRecord(dbRow: any) {
   return {
     id: dbRow.id,
@@ -150,21 +149,21 @@ function transformDrugRecord(dbRow: any) {
 }
 
 /**
- * 自动补全接口
+ * Autocomplete endpoint
  * GET /api/drugs/autocomplete?prefix=xxx
- * 返回一个字符串数组，表示匹配到的药品名称
+ * Returns an array of strings representing matched drug names
  */
 router.get('/autocomplete', async (req, res) => {
   const prefix = (req.query.prefix || '').toString().toLowerCase();
 
-  // 如果没有 prefix，则直接返回空数组
+  // If no prefix, return an empty array directly
   if (!prefix) {
     return res.json([]);
   }
 
   try {
-    // 用SQL做前缀匹配 (name LIKE prefix%)
-    // 这里ORDER BY可选，LIMIT 10只拿前10个候选
+    // SQL prefix match (name LIKE prefix%)
+    // ORDER BY is optional, LIMIT 10 only takes the first 10 candidates
     const sql = `
       SELECT name
       FROM drugs
@@ -174,7 +173,7 @@ router.get('/autocomplete', async (req, res) => {
     `;
     const result = await pool.query(sql, [ prefix ])
 
-    // rows 形如 [ { name: 'aspirin' }, { name: 'amoxicillin' }, ... ]
+    // rows are in the form of [ { name: 'aspirin' }, { name: 'amoxicillin' }, ... ]
     const drugNames = result.rows.map(r => r.name);
 
     return res.json(drugNames);

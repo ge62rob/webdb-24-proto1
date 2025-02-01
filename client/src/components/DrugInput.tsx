@@ -15,12 +15,12 @@ export function DrugInput({ onAddDrug }: DrugInputProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 每次搜索词变化时重置 highlightedIndex
+  // Reset highlightedIndex every time the search term changes
   useEffect(() => {
     setHighlightedIndex(-1);
   }, [suggestions]);
 
-  // 搜索函数：执行搜索并清空输入和建议
+  // Search function: Perform search and clear input and suggestions
   const handleSearch = async (term?: string) => {
     const query = term !== undefined ? term : searchTerm;
     if (query.trim().length === 0) {
@@ -45,7 +45,7 @@ export function DrugInput({ onAddDrug }: DrugInputProps) {
     }
   };
 
-  // 当输入变化时，调用后端获取建议列表
+  // When input changes, call backend to get suggestion list
   const handleInputChange = async (value: string) => {
     setSearchTerm(value);
     setError(null);
@@ -55,13 +55,13 @@ export function DrugInput({ onAddDrug }: DrugInputProps) {
     }
     try {
       const matches = await autoCompleteDrugs(value.toLowerCase());
-      console.log("matches from API:", matches);  // 调试输出，确认数据类型
+      console.log("matches from API:", matches);  // Debug output, confirm data type
       if (!Array.isArray(matches)) {
         console.error("Expected array for matches, got:", matches);
         setSuggestions([]);
         return;
       }
-      // 根据匹配位置排序（匹配位置越靠前越靠前）
+      // Sort based on match position (earlier matches come first)
       const sorted = matches.sort((a, b) =>
         a.toLowerCase().indexOf(value.toLowerCase()) - b.toLowerCase().indexOf(value.toLowerCase())
       );
@@ -72,10 +72,10 @@ export function DrugInput({ onAddDrug }: DrugInputProps) {
     }
   };
 
-  // 处理键盘事件：回车、上下箭头
+  // Handle keyboard events: Enter, Arrow Up/Down
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'ArrowDown') {
-      // 如果下拉列表不为空，则移动高亮项
+      // If dropdown list is not empty, move highlighted item
       e.preventDefault();
       setHighlightedIndex(prev =>
         prev < suggestions.length - 1 ? prev + 1 : 0
@@ -87,7 +87,7 @@ export function DrugInput({ onAddDrug }: DrugInputProps) {
       );
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      // 如果有高亮项，则选中高亮项进行搜索，否则按输入搜索
+      // If there is a highlighted item, select it for search, otherwise search by input
       if (highlightedIndex >= 0 && highlightedIndex < suggestions.length) {
         const selected = suggestions[highlightedIndex];
         setSearchTerm(selected);
@@ -99,7 +99,7 @@ export function DrugInput({ onAddDrug }: DrugInputProps) {
     }
   };
 
-  // 点击下拉建议时的处理：填充输入并搜索
+  // Handle click on dropdown suggestions: Fill input and search
   const handleSuggestionClick = (suggestion: string) => {
     setSearchTerm(suggestion);
     setSuggestions([]);

@@ -106,5 +106,5 @@ export async function autoCompleteDrugs(prefix: string): Promise<string[]> {
   const response = await axios.get<string[]>(`${API_BASE}/drugs/autocomplete`, {
     params: { prefix },
   });
-  return response.data; // 返回字符串数组
+  return response.data; 
 }
